@@ -27,16 +27,31 @@ export async function POST(request: NextRequest) {
   if (companyError) return NextResponse.json({ error: companyError.message }, { status: 500 })
   if (!company) return NextResponse.json({ error: 'Company not found' }, { status: 404 })
 
-  const body = await request.json()
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
-  const tiers = await generateQuotes({
-    jobDescription: parsed.data.jobDescription,
-    businessName: company.name,
-  })
+  let tiers: Awaited<ReturnType<typeof generateQuotes>>
+  try {
+    tiers = await generateQuotes({
+      jobDescription: parsed.data.jobDescription,
+      businessName: company.name,
+    })
+  } catch (err) {
+    console.error('[quotes/generate] generateQuotes failed:', err)
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'AI quote generation failed' },
+      { status: 500 }
+    )
+  }
 
-  const { data: quote } = await supabase
+  const { data: quote, error: insertError } = await supabase
     .from('quotes')
     .insert({
       company_id: company.id,
@@ -50,6 +65,11 @@ export async function POST(request: NextRequest) {
     })
     .select()
     .single()
+
+  if (insertError) {
+    console.error('[quotes/generate] insert failed:', insertError)
+    return NextResponse.json({ error: insertError.message }, { status: 500 })
+  }
 
   return NextResponse.json({ quote })
 }
