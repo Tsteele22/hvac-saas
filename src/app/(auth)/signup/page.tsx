@@ -15,24 +15,17 @@ export default function SignupPage() {
     setLoading(true)
     setError('')
     const supabase = createClient()
-    const { data, error: signupError } = await supabase.auth.signUp({
+    // company_name and company_phone are picked up by the handle_new_user
+    // trigger on auth.users, which inserts the companies row in the same
+    // transaction — no FK race condition.
+    const { error: signupError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
+      options: {
+        data: { company_name: form.name, company_phone: form.phone },
+      },
     })
-    if (signupError || !data.user) { setError(signupError?.message ?? 'Signup failed'); setLoading(false); return }
-
-    // Create company via server route (uses admin client, works before email confirmation)
-    const companyRes = await fetch('/api/auth/create-company', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: data.user.id, name: form.name, phone: form.phone }),
-    })
-    if (!companyRes.ok) {
-      const { error: msg } = await companyRes.json()
-      setError(msg ?? 'Failed to create company')
-      setLoading(false)
-      return
-    }
+    if (signupError) { setError(signupError.message); setLoading(false); return }
 
     router.push('/dashboard')
   }
