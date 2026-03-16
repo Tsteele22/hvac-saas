@@ -16,10 +16,6 @@ export async function POST(request: NextRequest) {
   const { userId, name, phone } = parsed.data
   const admin = supabaseAdmin()
 
-  // Verify the user actually exists in auth before creating a company for them
-  const { data: { user }, error: userError } = await admin.auth.admin.getUserById(userId)
-  if (userError || !user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
-
   // Prevent duplicate companies for the same owner
   const { data: existing } = await admin
     .from('companies')
