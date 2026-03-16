@@ -1,40 +1,38 @@
 'use client'
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import type { SupabaseClient } from '@supabase/supabase-js'
 
 export default function SignupPage() {
   const [form, setForm] = useState({ email: '', password: '', name: '', phone: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const supabaseRef = useRef<SupabaseClient | null>(null)
-
-  function getSupabase() {
-    if (!supabaseRef.current) supabaseRef.current = createClient()
-    return supabaseRef.current
-  }
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const supabase = getSupabase()
+    const supabase = createClient()
     const { data, error: signupError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
     })
     if (signupError || !data.user) { setError(signupError?.message ?? 'Signup failed'); setLoading(false); return }
 
-    // Create company record
-    const { error: companyError } = await supabase.from('companies').insert({
-      name: form.name,
-      owner_id: data.user.id,
-      phone: form.phone,
+    // Create company via server route (uses admin client, works before email confirmation)
+    const companyRes = await fetch('/api/auth/create-company', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: data.user.id, name: form.name, phone: form.phone }),
     })
-    if (companyError) { setError(companyError.message); setLoading(false); return }
+    if (!companyRes.ok) {
+      const { error: msg } = await companyRes.json()
+      setError(msg ?? 'Failed to create company')
+      setLoading(false)
+      return
+    }
 
     router.push('/dashboard')
   }
