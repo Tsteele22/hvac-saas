@@ -45,7 +45,7 @@ export async function generateQuotes(params: {
   const { jobDescription, businessName } = params
   const response = await getClient().messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 2000,
+    max_tokens: 4000,
     messages: [
       {
         role: 'user',
@@ -66,6 +66,7 @@ Return a JSON array with exactly 3 objects, one for each tier:
 ]
 
 Use realistic HVAC pricing. Better tier improves efficiency/warranty. Best tier is premium equipment with longest warranty.
+Keep each tier's description to 1 sentence (under 20 words). Line item descriptions should be brief (3–6 words).
 Return ONLY the raw JSON array. Do not wrap it in markdown code fences or add any explanation.`,
       },
     ],
