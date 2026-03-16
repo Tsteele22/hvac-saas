@@ -24,11 +24,22 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
   if (existing) return NextResponse.json({ error: 'Company already exists' }, { status: 409 })
 
-  const { data: company, error } = await admin
-    .from('companies')
-    .insert({ owner_id: userId, name, phone })
-    .select()
-    .single()
+  // Retry up to 3 times on FK violation (23503): auth.users row may not be
+  // committed yet when signUp() returns, so the owner_id reference can fail
+  // on the first attempt. 500 ms gaps are enough in practice.
+  let company = null
+  let error = null
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 500 * attempt))
+    const result = await admin
+      .from('companies')
+      .insert({ owner_id: userId, name, phone })
+      .select()
+      .single()
+    if (!result.error) { company = result.data; break }
+    if (result.error.code !== '23503') { error = result.error; break }
+    error = result.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ company })
