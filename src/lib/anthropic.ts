@@ -66,13 +66,14 @@ Return a JSON array with exactly 3 objects, one for each tier:
 ]
 
 Use realistic HVAC pricing. Better tier improves efficiency/warranty. Best tier is premium equipment with longest warranty.
-Return ONLY the JSON array, no other text.`,
+Return ONLY the raw JSON array. Do not wrap it in markdown code fences or add any explanation.`,
       },
     ],
   })
   const content = response.content[0]
   if (content.type !== 'text') throw new Error('Unexpected response type')
-  return JSON.parse(content.text) as QuoteTier[]
+  const text = content.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/,'').trim()
+  return JSON.parse(text) as QuoteTier[]
 }
 
 export interface QuoteTier {
